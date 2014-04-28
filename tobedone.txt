@@ -1,0 +1,5 @@
+To be done:
+
+-Fix that it only processes files which are sent by others and not selected to be send by user
+-Live Updating of Settings
+-Fix Output Sizes (Fix resizing)
