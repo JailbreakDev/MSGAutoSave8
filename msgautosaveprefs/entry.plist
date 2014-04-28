@@ -1,0 +1,10 @@
+{
+	entry = {
+		bundle = MSGAutoSavePrefs;
+		cell = PSLinkCell;
+		detail = "MSGAutoSavePrefsListController";
+		icon = "MSGAutoSavePrefs.png";
+		isController = 1;
+		label = "MSG Auto Save Settings";
+	};
+}
