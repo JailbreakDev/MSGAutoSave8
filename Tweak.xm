@@ -30,6 +30,41 @@ static float resizePercentage;
 -(CKImageData *)imageData;
 @end
 
+@interface CKMessagePart : NSObject {
+
+}
+@property(nonatomic,readonly) BOOL isOutgoing;
+-(id)imageData;
+@end
+
+%hook CKMessagePart
+
+-(id)imageData {
+
+	id msgData = %orig;
+
+	if (msgData && !self.isOutgoing) {
+
+		ALAssetsLibrary* library = [[ALAssetsLibrary alloc] init];
+		UIImage *originalImage = [UIImage imageWithData:msgData];
+		UIImage *resizedImage = [UIImage imageWithImage:originalImage scaledToSize:CGSizeMake(originalImage.size.width*resizePercentage,originalImage.size.height*resizePercentage)];
+		NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
+		[library writeImageDataToSavedPhotosAlbum:(NSData *)resizedImageData metadata:NULL completionBlock:^(NSURL *assetURL, NSError *error) {
+                                 if (error != nil) {
+                                     UIAlertView *error = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Error: Can not save image to Camera Roll" delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+                                     [error show];
+                                     [error release];
+                                 } 
+                                 [library release];
+                             }];
+	}
+
+	return msgData;
+}
+
+%end
+
+/*
 %hook CKImageMediaObject
 
 -(id)generateThumbnail {
@@ -43,7 +78,7 @@ static float resizePercentage;
 		ALAssetsLibrary* library = [[ALAssetsLibrary alloc] init];
 		UIImage *originalImage = [UIImage imageWithData:[[self imageData] data]];
 		UIImage *resizedImage = [UIImage imageWithImage:originalImage scaledToSize:CGSizeMake(originalImage.size.width*resizePercentage,originalImage.size.height*resizePercentage)];
-		NSData *resizedImageData = UIImagePNGRepresentation(resizedImage);
+		NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
 		[library writeImageDataToSavedPhotosAlbum:(NSData *)resizedImageData metadata:NULL completionBlock:^(NSURL *assetURL, NSError *error) {
                                  if (error != nil) {
                                      UIAlertView *error = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Error: Can not save image to Camera Roll" delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
@@ -59,6 +94,7 @@ static float resizePercentage;
 }
 
 %end
+*/
 
 void updateSettings(CFNotificationCenterRef center,
                            void * observer,
@@ -72,13 +108,13 @@ void updateSettings(CFNotificationCenterRef center,
 	}
 	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
 	enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
-	resizePercentage = settings[@"kResizeValue"] ? [settings[@"kResizeValue"] floatValue] : 1.0;
+	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
 }
 
 %ctor {
 	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, updateSettings, CFSTR("MSGAutoSaveUpdateSettingsNotification"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
 	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
-	resizePercentage = settings[@"kResizeValue"] ? [settings[@"kResizeValue"] floatValue] : 1.0;
+	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
 	enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
 	if (enabled) {
 		%init;
