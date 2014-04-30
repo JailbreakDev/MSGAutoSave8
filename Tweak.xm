@@ -21,11 +21,10 @@ static CKIMMessage *receivedMessage = NULL;
 -(int)mediaType;
 -(id)description;
 -(id)data;
--(id)title;
--(id)subtitle;
--(id)mimeType;
--(id)previewItemURL;
--(id)fileURL;
+-(NSString *)title;
+-(NSString *)subtitle;
+-(NSString *)mimeType;
+-(NSURL *)fileURL;
 @end
 
 @interface CKImageData : NSObject
@@ -139,7 +138,17 @@ NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
 
 } else if ([media mediaType] == 2) { //video
 
-//CKMovieMediaObject *videoMedia = (CKMovieMediaObject *)media;
+NSURL *videoURL = [media fileURL];
+[library writeVideoAtPathToSavedPhotosAlbum:videoURL completionBlock:^(NSURL *assetURL, NSError *error) {
+
+if (error != nil) {
+UIAlertView *error = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Error: Can not save Video to Camera Roll" delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+				     [error show];
+				     [error release];
+				 } 
+
+}];
+
 
 } else { //unknown
 
