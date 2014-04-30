@@ -62,31 +62,35 @@ void updateSettings(CFNotificationCenterRef center,
 	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
 }
 
-@interface MyRead : NSObject {
+@interface AutoSpaceComma : NSObject {
 
 }
 -(void)startListening;
 @end
 
-@implementation MyRead 
+@implementation AutoSpaceComma 
 
 -(void)readAwesomeMessage:(NSNotification *)notif {
 
 	UIAlertView *av = [[UIAlertView alloc] initWithTitle:@"Read awesome Message" message:[NSString stringWithFormat:@"%@ ||| %@",notif.userInfo,notif.object] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
 	[av show];
+
+	/*
+		CKIMMessage
+		-(id)messageParts; (CKMessagePart) ->-(id)imageData; != NULL
+	*/
 }
 
 -(void)startListening {
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(readAwesomeMessage:) name:@"CKConversationMessageReadNotification" object:nil];
-	
 }
 
 @end
 
 %ctor {
-	MyRead *r = [[MyRead alloc] init];
-	[r startListening];
+	AutoSpaceComma *asc = [[AutoSpaceComma alloc] init];
+	[asc startListening];
 	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, updateSettings, CFSTR("MSGAutoSaveUpdateSettingsNotification"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
 	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
 	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
