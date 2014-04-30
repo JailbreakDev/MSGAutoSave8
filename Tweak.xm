@@ -3,12 +3,15 @@
 #define PLIST_PATH @"/var/mobile/Library/Preferences/com.sharedroutine.msgautosave.plist"
 static NSDictionary *settings;
 static BOOL enabled = TRUE;
+static BOOL confirmSave = FALSE;
 static float resizePercentage;
-static ALAssetsLibrary* library;
+static ALAssetsLibrary *library;
 
 @interface CKIMMessage : NSObject
--(id)parts;
+-(NSArray *)parts;
 @end
+
+static CKIMMessage *receivedMessage = NULL;
 
 @interface CKMessagePart : NSObject
 -(int)type;
@@ -96,9 +99,10 @@ void updateSettings(CFNotificationCenterRef center,
 	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
 	enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
 	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
+	confirmSave = [settings[@"kConfirmSave"] boolValue];
 }
 
-@interface MSGAutoSave : NSObject {
+@interface MSGAutoSave : NSObject <UIAlertViewDelegate> {
 
 }
 -(void)startListening;
@@ -106,10 +110,9 @@ void updateSettings(CFNotificationCenterRef center,
 
 @implementation MSGAutoSave 
 
--(void)readAwesomeMessage:(NSNotification *)notif {
+-(void)processMessageParts:(NSArray *)parts {
 
-CKIMMessage *msg = notif.userInfo[@"CKMessageKey"];
-for (CKMessagePart *msgPart in [msg parts]) {
+for (CKMessagePart *msgPart in parts) {
 
 if ([msgPart type] == 1) {
 
@@ -153,11 +156,44 @@ UIAlertView *error = [[UIAlertView alloc] initWithTitle:[media title] message:[N
       
 }//for loop
 
+
+}
+
+-(void)readAwesomeMessage:(NSNotification *)notif {
+
+CKIMMessage *msg = notif.userInfo[@"CKMessageKey"];
+
+if (confirmSave) {
+
+receivedMessage = msg;
+UIAlertView *confirmation = [[UIAlertView alloc] initWithTitle:@"Confirmation" message:[NSString stringWithFormat:@"Do you want to save %d Item(s)?",[msg parts].count] delegate:self cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+confirmation.tag = 99;
+[confirmation show];
+[confirmation release];
+
+} else {
+
+[self processMessageParts:[msg parts]];
+
+}
+
 }
 
 -(void)startListening {
+[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(readAwesomeMessage:) name:@"CKConversationMessageReadNotification" object:nil];
+}
 
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(readAwesomeMessage:) name:@"CKConversationMessageReadNotification" object:nil];
+#pragma mark UIAlertViewDelegate
+
+-(void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+
+if (alertView.tag != 99) return;
+if (alertView.cancelButtonIndex == buttonIndex) return;
+
+if (receivedMessage) {
+[self processMessageParts:[receivedMessage parts]];
+}
+
 }
 
 @end
@@ -171,7 +207,6 @@ UIAlertView *error = [[UIAlertView alloc] initWithTitle:[media title] message:[N
 	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
 	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
 	enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
-	if (enabled) {
-		%init;
-	}
+	confirmSave = [settings[@"kConfirmSave"] boolValue];
+	
 }
