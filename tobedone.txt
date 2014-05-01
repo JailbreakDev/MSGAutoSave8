@@ -1,6 +1,0 @@
-To be done:
-
--Add Settings Option in subproject
--clean code
--Final Testing
--Create Video
