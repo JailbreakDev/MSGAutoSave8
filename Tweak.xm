@@ -130,11 +130,7 @@ NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
 				     UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"Error" message:[NSString stringWithFormat:@"Can not save Image to Camera Roll: %@\nPlease screenshot this and email the Developer",error.description] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
 				     [errorAlert show];
 				     [errorAlert release];
-				 } else {
-				 	UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"Success" message:[NSString stringWithFormat:@"Successfully saved Image!"] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
-				    [successAlert show];
-				    [successAlert release];
-				 }
+				 } 
 }];
 
 } else if ([media mediaType] == 2) { //video
@@ -163,8 +159,6 @@ if (exportSession) {
 
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0ul);
     dispatch_async(queue, ^{
-
-    	UIAlertView *statusAlert = [[UIAlertView alloc] init];
 
     	NSString *fileName = [[videoURL absoluteString] lastPathComponent];
     	NSString *newName = [fileName stringByAppendingString:@"_resized.MOV"];
