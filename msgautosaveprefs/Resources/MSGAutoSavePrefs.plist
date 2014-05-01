@@ -18,7 +18,7 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.sharedroutine.msgautosaveprefs</string>
+			<string>com.sharedroutine.msgautosave</string>
 			<key>key</key>
 			<string>kEnabled</string>
 			<key>label</key>
@@ -32,15 +32,27 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.sharedroutine.msgautosave</string>
+			<key>key</key>
+			<string>kConfirmSave</string>
+			<key>label</key>
+			<string>Confirm Alert before Saving</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSLinkListCell</string>
 			<key>default</key>
-			<integer>1</integer>
+			<integer>100</integer>
 			<key>defaults</key>
 			<string>com.sharedroutine.msgautosave</string>
 			<key>key</key>
 			<string>kResizeValue</string>
 			<key>label</key>
-			<string>Resize Image</string>
+			<string>Resize Images</string>
 			<key>titlesDataSource</key>
 			<string>getTitles:</string>
 			<key>valuesDataSource</key>
@@ -48,8 +60,26 @@
 			<key>detail</key>
 			<string>PSListItemsController</string>
 		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>default</key>
+			<integer>-1</integer>
+			<key>defaults</key>
+			<string>com.sharedroutine.msgautosave</string>
+			<key>key</key>
+			<string>kResizeVideoValue</string>
+			<key>label</key>
+			<string>Resize Videos</string>
+			<key>titlesDataSource</key>
+			<string>getVideoSizeTitles:</string>
+			<key>valuesDataSource</key>
+			<string>getVideoSizeValues:</string>
+			<key>detail</key>
+			<string>PSListItemsController</string>
+		</dict>
 	</array>
 	<key>title</key>
-	<string>MSG Auto Save</string>
+	<string>Message Auto Save</string>
 </dict>
 </plist>
