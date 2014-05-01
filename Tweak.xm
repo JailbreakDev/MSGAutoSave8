@@ -1,5 +1,6 @@
 #import <AssetsLibrary/AssetsLibrary.h>
 #import <AVFoundation/AVFoundation.h>
+#import <UIKit/UIKit.h>
 
 #define PLIST_PATH @"/var/mobile/Library/Preferences/com.sharedroutine.msgautosave.plist"
 static NSDictionary *settings;
@@ -55,54 +56,6 @@ static CKIMMessage *receivedMessage = NULL;
 }
 @end
 
-/*
-%hook CKImageMediaObject
-
--(id)generateThumbnail {
-
-	if (!enabled) return %orig;
-
-	id thumbnail = %orig;
-
-	if (thumbnail) {
-
-		ALAssetsLibrary* library = [[ALAssetsLibrary alloc] init];
-		UIImage *originalImage = [UIImage imageWithData:[[self imageData] data]];
-		UIImage *resizedImage = [UIImage imageWithImage:originalImage scaledToSize:CGSizeMake(originalImage.size.width*resizePercentage,originalImage.size.height*resizePercentage)];
-		NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
-		[library writeImageDataToSavedPhotosAlbum:(NSData *)resizedImageData metadata:NULL completionBlock:^(NSURL *assetURL, NSError *error) {
-				 if (error != nil) {
-				     UIAlertView *error = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Error: Can not save image to Camera Roll" delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
-				     [error show];
-				     [error release];
-				 } 
-				 [library release];
-			     }];
-
-	}
-
-	return thumbnail;
-}
-
-%end
-*/
-
-void updateSettings(CFNotificationCenterRef center,
-			   void * observer,
-			   CFStringRef name,
-			   const void * object,
-			   CFDictionaryRef userInfo) {
-
-	if (settings) {
-		settings = nil;
-		[settings release];
-	}
-	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
-	enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
-	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
-	confirmSave = [settings[@"kConfirmSave"] boolValue];
-}
-
 @interface MSGAutoSave : NSObject <UIAlertViewDelegate> {
 
 }
@@ -145,10 +98,10 @@ break;
 [library writeVideoAtPathToSavedPhotosAlbum:videoURL completionBlock:^(NSURL *assetURL, NSError *error) {
 
 if (error != nil) {
-UIAlertView *error = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Error: Can not save Video to Camera Roll" delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
-				     [error show];
-				     [error release];
-				 } 
+UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"Error" message:[NSString stringWithFormat:@"Can not save Video to Camera Roll: %@",error.description] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+[errorAlert show];
+[errorAlert release];
+} 
 
 }];
 
@@ -174,11 +127,14 @@ UIImage *resizedImage = [UIImage imageWithImage:originalImage scaledToSize:CGSiz
 NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
 [library writeImageDataToSavedPhotosAlbum:(NSData *)resizedImageData metadata:NULL completionBlock:^(NSURL *assetURL, NSError *error) {
 				 if (error != nil) {
-				     UIAlertView *error = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Error: Can not save image to Camera Roll" delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
-				     [error show];
-				     [error release];
-				 } 
-				 //[library release];
+				     UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"Error" message:[NSString stringWithFormat:@"Can not save Image to Camera Roll: %@\nPlease screenshot this and email the Developer",error.description] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+				     [errorAlert show];
+				     [errorAlert release];
+				 } else {
+				 	UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"Success" message:[NSString stringWithFormat:@"Successfully saved Image!"] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+				    [successAlert show];
+				    [successAlert release];
+				 }
 }];
 
 } else if ([media mediaType] == 2) { //video
@@ -194,38 +150,55 @@ if (resizeVideoValue == -1) {
 
 AVAsset *asset = [AVAsset assetWithURL:videoURL];
 NSArray *compatiblePresets = [AVAssetExportSession exportPresetsCompatibleWithAsset:asset];
-if (![compatiblePresets containsObject:[self qualityForValue:resizeVideoValue]]) //warn user that quality is not available and return
+if (![compatiblePresets containsObject:[self qualityForValue:resizeVideoValue]]) {
+	UIAlertView *notSupported = [[UIAlertView alloc] initWithTitle:@"Error" message:[NSString stringWithFormat:@"Video Size not supported"] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+	[notSupported show];
+	[notSupported release];
+	return;
+}
 
 exportSession = [[AVAssetExportSession alloc] initWithAsset:asset presetName:[self qualityForValue:resizeVideoValue]];
 
 if (exportSession) {
 
-    exportSession.outputURL = videoURL; //choose other location or name
-    exportSession.outputFileType = AVFileTypeQuickTimeMovie;
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0ul);
+    dispatch_async(queue, ^{
 
-    [exportSession exportAsynchronouslyWithCompletionHandler:^{
+    	UIAlertView *statusAlert = [[UIAlertView alloc] init];
+
+    	NSString *fileName = [[videoURL absoluteString] lastPathComponent];
+    	NSString *newName = [fileName stringByAppendingString:@"_resized.MOV"];
+    	NSURL *fileURL = [videoURL URLByDeletingLastPathComponent];
+    	fileURL = [fileURL URLByAppendingPathComponent:newName];
+		exportSession.outputURL = fileURL;
+    	exportSession.outputFileType = AVFileTypeQuickTimeMovie;
+        [exportSession exportAsynchronouslyWithCompletionHandler:^{
       switch ([exportSession status]) {
 	case AVAssetExportSessionStatusFailed:
-	    //TODO: warn of failure
 	    break;
 	case AVAssetExportSessionStatusCancelled:
-	    //TODO: warn of cancellation
 	    break;
 	default:
-	    //TODO: do whatever is next
+	    [self saveVideoToCameraRollAtURL:[exportSession outputURL]];
 	    break;
       }
       [exportSession release];
-
     }];
+   	 	dispatch_sync(dispatch_get_main_queue(), ^{
+                 
+      	});
 
+    });
+    
 }
+
+NSLog(@"MSG: END");
 
 }
 
 } else { //unknown
 
-UIAlertView *error = [[UIAlertView alloc] initWithTitle:[media title] message:[NSString stringWithFormat:@"%@ (%d)",[media mimeType], [media mediaType]] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+UIAlertView *error = [[UIAlertView alloc] initWithTitle:[media title] message:[NSString stringWithFormat:@"%@ (%d)\nPlease screenshot this and email the Developer",[media mimeType], [media mediaType]] delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
 [error show];
 [error release];
 
@@ -248,7 +221,7 @@ CKIMMessage *msg = notif.userInfo[@"CKMessageKey"];
 if (confirmSave) {
 
 receivedMessage = msg;
-UIAlertView *confirmation = [[UIAlertView alloc] initWithTitle:@"Confirmation" message:[NSString stringWithFormat:@"Do you want to save %d Item(s)?",[msg parts].count] delegate:self cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+UIAlertView *confirmation = [[UIAlertView alloc] initWithTitle:@"Confirmation" message:[NSString stringWithFormat:@"Do you want to save %lu Item(s)?",(unsigned long)[msg parts].count] delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Save",nil];
 confirmation.tag = 99;
 [confirmation show];
 [confirmation release];
@@ -265,8 +238,6 @@ confirmation.tag = 99;
 [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(readAwesomeMessage:) name:@"CKConversationMessageReadNotification" object:nil];
 }
 
-#pragma mark UIAlertViewDelegate
-
 -(void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
 
 if (alertView.tag != 99) return;
@@ -278,19 +249,45 @@ if (receivedMessage) {
 
 }
 
+-(void)dealloc {
+
+	settings = nil;
+	[settings release];
+	library = nil;
+	[library release];
+	CFNotificationCenterRemoveObserver(CFNotificationCenterGetDarwinNotifyCenter(),NULL,CFSTR("MSGAutoSaveUpdateSettingsNotification"),NULL);
+	[super dealloc];
+}
+
 @end
+
+void updateSettings(CFNotificationCenterRef center,
+			   void * observer,
+			   CFStringRef name,
+			   const void * object,
+			   CFDictionaryRef userInfo) {
+
+	if (settings) {
+		settings = nil;
+		[settings release];
+	}
+	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
+	enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
+	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
+	resizeVideoValue = settings[@"kResizeVideoValue"] ? [settings[@"kResizeVideoValue"] intValue] : -1;
+	confirmSave = [settings[@"kConfirmSave"] boolValue];
+}
 
 %ctor {
 
-//UILocalNotification!!!!!
-
-	library = [[ALAssetsLibrary alloc] init];
-	MSGAutoSave *msgAutoSave = [[MSGAutoSave alloc] init];
-	[msgAutoSave startListening];
-	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, updateSettings, CFSTR("MSGAutoSaveUpdateSettingsNotification"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
 	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
+	MSGAutoSave *msgAutoSave = [[[MSGAutoSave alloc] init] autorelease];
+	[msgAutoSave startListening];
+	library = [[ALAssetsLibrary alloc] init];
 	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
+	resizeVideoValue = settings[@"kResizeVideoValue"] ? [settings[@"kResizeVideoValue"] intValue] : -1;
 	enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
 	confirmSave = [settings[@"kConfirmSave"] boolValue];
+	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, updateSettings, CFSTR("MSGAutoSaveUpdateSettingsNotification"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
 	
 }
