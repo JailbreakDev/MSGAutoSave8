@@ -1,9 +1,11 @@
 #import <AssetsLibrary/AssetsLibrary.h>
+#import <AVFoundation/AVFoundation.h>
 
 #define PLIST_PATH @"/var/mobile/Library/Preferences/com.sharedroutine.msgautosave.plist"
 static NSDictionary *settings;
 static BOOL enabled = TRUE;
 static BOOL confirmSave = FALSE;
+static int resizeVideoValue = -1;
 static float resizePercentage;
 static ALAssetsLibrary *library;
 
@@ -109,6 +111,49 @@ void updateSettings(CFNotificationCenterRef center,
 
 @implementation MSGAutoSave 
 
+-(NSString *)qualityForValue:(int)value {
+
+switch (value) {
+
+case 0: //AVAssetExportPreset640x480
+return AVAssetExportPreset640x480;
+break;
+
+case 1: //AVAssetExportPreset960x540
+return AVAssetExportPreset960x540;
+break;
+
+case 2: //AVAssetExportPreset1280x720
+return AVAssetExportPreset1280x720;
+break;
+
+case 3: //AVAssetExportPreset1920x1080
+return AVAssetExportPreset1920x1080;
+break;
+
+default:
+return @"not supported";
+break;
+
+
+}
+
+}
+
+-(void)saveVideoToCameraRollAtURL:(NSURL *)videoURL {
+
+[library writeVideoAtPathToSavedPhotosAlbum:videoURL completionBlock:^(NSURL *assetURL, NSError *error) {
+
+if (error != nil) {
+UIAlertView *error = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Error: Can not save Video to Camera Roll" delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
+				     [error show];
+				     [error release];
+				 } 
+
+}];
+
+}
+
 -(void)processMessageParts:(NSArray *)parts {
 
 for (CKMessagePart *msgPart in parts) {
@@ -139,16 +184,44 @@ NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
 } else if ([media mediaType] == 2) { //video
 
 NSURL *videoURL = [media fileURL];
-[library writeVideoAtPathToSavedPhotosAlbum:videoURL completionBlock:^(NSURL *assetURL, NSError *error) {
+AVAssetExportSession *exportSession = NULL;
 
-if (error != nil) {
-UIAlertView *error = [[UIAlertView alloc] initWithTitle:@"Error" message:@"Error: Can not save Video to Camera Roll" delegate:nil cancelButtonTitle:@"Okay" otherButtonTitles:nil];
-				     [error show];
-				     [error release];
-				 } 
+if (resizeVideoValue == -1) {
 
-}];
+[self saveVideoToCameraRollAtURL:videoURL];
 
+} else {
+
+AVAsset *asset = [AVAsset assetWithURL:videoURL];
+NSArray *compatiblePresets = [AVAssetExportSession exportPresetsCompatibleWithAsset:asset];
+if (![compatiblePresets containsObject:[self qualityForValue:resizeVideoValue]]) //warn user that quality is not available and return
+
+exportSession = [[AVAssetExportSession alloc] initWithAsset:asset presetName:[self qualityForValue:resizeVideoValue]];
+
+if (exportSession) {
+
+    exportSession.outputURL = videoURL; //choose other location or name
+    exportSession.outputFileType = AVFileTypeQuickTimeMovie;
+
+    [exportSession exportAsynchronouslyWithCompletionHandler:^{
+      switch ([exportSession status]) {
+	case AVAssetExportSessionStatusFailed:
+	    //TODO: warn of failure
+	    break;
+	case AVAssetExportSessionStatusCancelled:
+	    //TODO: warn of cancellation
+	    break;
+	default:
+	    //TODO: do whatever is next
+	    break;
+      }
+      [exportSession release];
+
+    }];
+
+}
+
+}
 
 } else { //unknown
 
@@ -208,6 +281,8 @@ if (receivedMessage) {
 @end
 
 %ctor {
+
+//UILocalNotification!!!!!
 
 	library = [[ALAssetsLibrary alloc] init];
 	MSGAutoSave *msgAutoSave = [[MSGAutoSave alloc] init];

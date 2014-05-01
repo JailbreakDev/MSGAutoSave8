@@ -1,7 +1,6 @@
 To be done:
 
 -Add Settings Option in subproject
--Try Video resizing
--Release Objects and clean code
+-clean code
 -Final Testing
 -Create Video
