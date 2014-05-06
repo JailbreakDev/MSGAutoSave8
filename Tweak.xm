@@ -186,8 +186,6 @@ if (exportSession) {
     
 }
 
-NSLog(@"MSG: END");
-
 }
 
 } else { //unknown
@@ -212,7 +210,17 @@ UIAlertView *error = [[UIAlertView alloc] initWithTitle:[media title] message:[N
 
 CKIMMessage *msg = notif.userInfo[@"CKMessageKey"];
 
-if (confirmSave) {
+BOOL mediaAvailable = FALSE;
+
+for (CKMessagePart *msgPart in [msg parts]) {
+
+if ([msgPart type] == 1) {
+mediaAvailable = TRUE;
+}
+
+}
+
+if (confirmSave && mediaAvailable) {
 
 receivedMessage = msg;
 UIAlertView *confirmation = [[UIAlertView alloc] initWithTitle:@"Confirmation" message:[NSString stringWithFormat:@"Do you want to save %lu Item(s)?",(unsigned long)[msg parts].count] delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Save",nil];
