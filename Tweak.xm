@@ -6,10 +6,6 @@
 #define kCFCoreFoundationVersionNumber_IOS_6_0 793
 #endif
 
-#ifndef kCFCoreFoundationVersionNumber_IOS_7_0
-#define kCFCoreFoundationVersionNumber_IOS_7_0 838.00
-#endif
-
 #define PLIST_PATH @"/var/mobile/Library/Preferences/com.sharedroutine.msgautosave.plist"
 static NSDictionary *settings;
 static BOOL enabled = TRUE;
@@ -103,7 +99,7 @@ break;
 
 -(void)saveVideoToCameraRollAtURL:(NSURL *)videoURL {
 
-if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_IOS_7_0 || kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_6_0) {
+if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_6_0) {
 
 [library writeVideoAtPathToSavedPhotosAlbum:videoURL completionBlock:^(NSURL *assetURL, NSError *error) {
 
