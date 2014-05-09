@@ -2,6 +2,14 @@
 #import <AVFoundation/AVFoundation.h>
 #import <UIKit/UIKit.h>
 
+#ifndef kCFCoreFoundationVersionNumber_IOS_6_0
+#define kCFCoreFoundationVersionNumber_IOS_6_0 793
+#endif
+
+#ifndef kCFCoreFoundationVersionNumber_IOS_7_0
+#define kCFCoreFoundationVersionNumber_IOS_7_0 838.00
+#endif
+
 #define PLIST_PATH @"/var/mobile/Library/Preferences/com.sharedroutine.msgautosave.plist"
 static NSDictionary *settings;
 static BOOL enabled = TRUE;
@@ -95,6 +103,8 @@ break;
 
 -(void)saveVideoToCameraRollAtURL:(NSURL *)videoURL {
 
+if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_IOS_7_0 || kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_6_0) {
+
 [library writeVideoAtPathToSavedPhotosAlbum:videoURL completionBlock:^(NSURL *assetURL, NSError *error) {
 
 if (error != nil) {
@@ -104,6 +114,11 @@ UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"Error" message:[N
 } 
 
 }];
+
+} else {
+
+	UISaveVideoAtPathToSavedPhotosAlbum(videoURL.absoluteString,NULL,NULL,NULL);
+}
 
 }
 
@@ -124,6 +139,9 @@ CKImageMediaObject *imageMedia = (CKImageMediaObject *)media;
 NSData *imageData = [[imageMedia imageData] data];
 UIImage *originalImage = [UIImage imageWithData:imageData];
 UIImage *resizedImage = [UIImage imageWithImage:originalImage scaledToSize:CGSizeMake(originalImage.size.width*resizePercentage,originalImage.size.height*resizePercentage)];
+
+if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_IOS_7_0 || kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_6_0) {
+
 NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
 [library writeImageDataToSavedPhotosAlbum:(NSData *)resizedImageData metadata:NULL completionBlock:^(NSURL *assetURL, NSError *error) {
 				 if (error != nil) {
@@ -132,6 +150,12 @@ NSData *resizedImageData = UIImageJPEGRepresentation(resizedImage,0.0);
 				     [errorAlert release];
 				 } 
 }];
+
+} else {
+
+UIImageWriteToSavedPhotosAlbum(resizedImage,NULL,NULL,NULL);
+
+}
 
 } else if ([media mediaType] == 2) { //video
 
