@@ -2,7 +2,6 @@
 	Filter = {
 		Bundles = (
 			"com.apple.MobileSMS",
-			"com.apple.chatkit",
 		);
 	};
 }
