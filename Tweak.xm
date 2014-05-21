@@ -302,14 +302,16 @@ void updateSettings(CFNotificationCenterRef center,
 
 %ctor {
 
-	settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
-	MSGAutoSave *msgAutoSave = [[[MSGAutoSave alloc] init] autorelease];
-	[msgAutoSave startListening];
-	library = [[ALAssetsLibrary alloc] init];
-	resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
-	resizeVideoValue = settings[@"kResizeVideoValue"] ? [settings[@"kResizeVideoValue"] intValue] : -1;
-	enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
-	confirmSave = [settings[@"kConfirmSave"] boolValue];
-	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, updateSettings, CFSTR("MSGAutoSaveUpdateSettingsNotification"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+	if ([[NSBundle mainBundle].bundleIdentifier isEqualToString:@"com.apple.MobileSMS"]) {
+		settings = [[NSDictionary alloc] initWithContentsOfFile:PLIST_PATH];
+		MSGAutoSave *msgAutoSave = [[[MSGAutoSave alloc] init] autorelease];
+		[msgAutoSave startListening];
+		library = [[ALAssetsLibrary alloc] init];
+		resizePercentage = settings[@"kResizeValue"] ? (float)[settings[@"kResizeValue"] intValue]/100 : (float)1;
+		resizeVideoValue = settings[@"kResizeVideoValue"] ? [settings[@"kResizeVideoValue"] intValue] : -1;
+		enabled = settings[@"kEnabled"] ? [settings[@"kEnabled"] boolValue] : TRUE;
+		confirmSave = [settings[@"kConfirmSave"] boolValue];
+		CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, updateSettings, CFSTR("MSGAutoSaveUpdateSettingsNotification"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+	}
 	
 }
