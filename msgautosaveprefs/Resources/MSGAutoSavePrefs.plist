@@ -8,9 +8,9 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>MSG Auto Save</string>
+			<string>MSGAutoSave</string>
 			<key>footerText</key>
-			<string>by Jack (@sharedRoutine)</string>
+			<string>by Janosch Hübner (@sharedRoutine)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -42,7 +42,7 @@
 			<key>key</key>
 			<string>kConfirmSave</string>
 			<key>label</key>
-			<string>Confirm Alert before Saving</string>
+			<string>Confirm before saving</string>
 			<key>PostNotification</key>
 			<string>MSGAutoSaveUpdateSettingsNotification</string>
 		</dict>
@@ -50,7 +50,7 @@
 			<key>cell</key>
 			<string>PSLinkListCell</string>
 			<key>default</key>
-			<integer>100</integer>
+			<real>1.0</real>
 			<key>defaults</key>
 			<string>com.sharedroutine.msgautosave</string>
 			<key>key</key>
@@ -88,6 +88,6 @@
 		</dict>
 	</array>
 	<key>title</key>
-	<string>Message Auto Save</string>
+	<string>MSGAutoSave</string>
 </dict>
 </plist>

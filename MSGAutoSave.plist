@@ -1,7 +1,9 @@
 {
 	Filter = {
 		Bundles = (
-			"com.apple.chatkit",
+			"com.apple.imagent",
+			"com.apple.springboard",
+			"com.apple.MobileSMS"
 		);
 	};
 }

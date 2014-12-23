@@ -5,6 +5,6 @@
 		detail = "MSGAutoSavePrefsListController";
 		icon = "MSGAutoSavePrefs.png";
 		isController = 1;
-		label = "MSG Auto Save Settings";
+		label = "MSGAutoSave Settings";
 	};
 }
