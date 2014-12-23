@@ -232,21 +232,17 @@ void settingsChanged(CFNotificationCenterRef center,
 
 -(void)prepare {
 
-	void (^postNotification)() = ^(){
-		[[NSDistributedNotificationCenter defaultCenter] postNotificationName:@"MSGAutoSaveDoYourThingNotification" object:nil userInfo:@{@"kTransferGUIDs":self.transferGUIDs} deliverImmediately:YES];
-	};
-
 	if ([self.processName isEqualToString:@"SpringBoard"]) {
 		//SpringBoard keeps the transferGUIDs until MobileSMS launches
 		self.launchListener = [[%c(SBLaunchAppListener) alloc] initWithBundleIdentifier:@"com.apple.MobileSMS" handlerBlock:^{
-			postNotification();
+			[[NSDistributedNotificationCenter defaultCenter] postNotificationName:@"MSGAutoSaveDoYourThingNotification" object:nil userInfo:@{@"kTransferGUIDs":self.transferGUIDs} deliverImmediately:YES];
 		}];
 
 		if ([self.smsApplication isRunning]) {
-			postNotification();
+			[[NSDistributedNotificationCenter defaultCenter] postNotificationName:@"MSGAutoSaveDoYourThingNotification" object:nil userInfo:@{@"kTransferGUIDs":self.transferGUIDs} deliverImmediately:YES];
 		}
 	} 
-	postNotification();
+	[[NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(notificationReceived:) name:@"MSGAutoSaveDoYourThingNotification" object:nil];
 }
 
 -(NSString *)processName {

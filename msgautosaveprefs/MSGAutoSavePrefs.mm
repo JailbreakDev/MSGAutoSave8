@@ -1,7 +1,9 @@
 #import <Preferences/Preferences.h>
+#import "GoogleSDK/GADBannerView.h"
+#import "GoogleSDK/GADBannerViewDelegate.h"
 
-@interface MSGAutoSavePrefsListController: PSListController {
-}
+@interface MSGAutoSavePrefsListController: PSListController <GADBannerViewDelegate>
+@property(nonatomic, strong) GADBannerView *bannerView;
 @end
 
 @implementation MSGAutoSavePrefsListController
@@ -10,6 +12,31 @@
 		_specifiers = [[self loadSpecifiersFromPlistName:@"MSGAutoSavePrefs" target:self] retain];
 	}
 	return _specifiers;
+}
+
+-(void)viewDidLoad {
+	[super viewDidLoad];
+
+	self.bannerView = [[GADBannerView alloc] initWithAdSize:kGADAdSizeBanner];
+  	self.bannerView.delegate = self;
+  	self.bannerView.adUnitID = @"ca-app-pub-4933765160729181/1539390357";
+  	self.bannerView.rootViewController = self;
+  	GADRequest *request = [GADRequest request];
+  	request.gender = kGADGenderMale;
+	[request setBirthdayWithMonth:6 day:18 year:1990];
+	[request tagForChildDirectedTreatment:YES];
+	//request.contentURL = @"http://googleadsdeveloper.blogspot.com/2013/10/upgrade-to-new-google-mobile-ads-sdk.html";
+	[request addKeyword:@"Messenger"];
+	[request addKeyword:@"Whatsapp"];
+	[request addKeyword:@"Apps"];
+	[request addKeyword:@"Communication"];
+  	[self.bannerView loadRequest:request];
+  	[self.bannerView setTranslatesAutoresizingMaskIntoConstraints:NO];
+  	[[self view] addSubview:self.bannerView];
+  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:[self view] attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
+  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeBottom relatedBy:NSLayoutRelationEqual toItem:[self view] attribute:NSLayoutAttributeBottom multiplier:1 constant:0]];
+  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:[self view] attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
+  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeHeight multiplier:1 constant:100]];
 }
 
 -(NSArray *)getTitles:(PSSpecifier *)spec {

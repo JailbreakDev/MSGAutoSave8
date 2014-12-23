@@ -1,4 +1,4 @@
-THEOS_DEVICE_IP = iPhone
+THEOS_DEVICE_IP = iPad
 export TARGET = iphone:clang:8.1
 ARCHS = armv7 arm64
 include theos/makefiles/common.mk
