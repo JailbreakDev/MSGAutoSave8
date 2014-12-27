@@ -1,30 +1,35 @@
 #import <Preferences/Preferences.h>
+#import "MSGAutoSaveMainHeaderView.h"
 #import "GoogleSDK/GADBannerView.h"
 #import "GoogleSDK/GADBannerViewDelegate.h"
 
-@interface MSGAutoSavePrefsListController: PSListController <GADBannerViewDelegate>
+@interface MSGAutoSaveAdCell : PSTableCell <GADBannerViewDelegate>
 @property(nonatomic, strong) GADBannerView *bannerView;
+@property(nonatomic, strong) id rootViewController;
 @end
 
-@implementation MSGAutoSavePrefsListController
-- (id)specifiers {
-	if(_specifiers == nil) {
-		_specifiers = [[self loadSpecifiersFromPlistName:@"MSGAutoSavePrefs" target:self] retain];
+@implementation MSGAutoSaveAdCell
+@synthesize bannerView,rootViewController;
+
+-(id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier specifier:(PSSpecifier *)spec {
+	self = [super initWithStyle:style reuseIdentifier:reuseIdentifier specifier:spec];
+	if (self) {
+		self.rootViewController = spec.target;
+		[self setupAdvertisement];
 	}
-	return _specifiers;
+
+	return self;
 }
 
--(void)viewDidLoad {
-	[super viewDidLoad];
+-(void)setupAdvertisement {
 	self.bannerView = [[GADBannerView alloc] initWithAdSize:kGADAdSizeBanner];
   	self.bannerView.delegate = self;
   	self.bannerView.adUnitID = @"ca-app-pub-4933765160729181/1539390357";
-  	self.bannerView.rootViewController = self;
+  	self.bannerView.rootViewController = self.rootViewController;
   	GADRequest *request = [GADRequest request];
   	request.gender = kGADGenderMale;
 	[request setBirthdayWithMonth:6 day:18 year:1990];
 	[request tagForChildDirectedTreatment:YES];
-	request.contentURL = @"https://ioscoderz.com/forum/index.php";
 	[request addKeyword:@"Messenger"];
 	[request addKeyword:@"Whatsapp"];
 	[request addKeyword:@"Apps"];
@@ -36,11 +41,48 @@
 	[request addKeyword:@"Communication"];
   	[self.bannerView loadRequest:request];
   	[self.bannerView setTranslatesAutoresizingMaskIntoConstraints:NO];
-  	[[self view] addSubview:self.bannerView];
-  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:[self table] attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
-  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeBottom relatedBy:NSLayoutRelationEqual toItem:[self view] attribute:NSLayoutAttributeBottom multiplier:1 constant:0]];
-  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:[self table] attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
-  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeHeight multiplier:1 constant:100]];
+  	[self addSubview:self.bannerView];
+  	[self addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:self attribute:NSLayoutAttributeTop multiplier:1 constant:0]];
+  	[self addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:self attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
+  	[self addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeHeight multiplier:1 constant:100]];
+}
+
+@end
+
+@interface MSGAutoSavePrefsListController : PSListController 
+@end
+
+@implementation MSGAutoSavePrefsListController
+- (id)specifiers {
+	if(_specifiers == nil) {
+		NSMutableArray *specs = [[[self loadSpecifiersFromPlistName:@"MSGAutoSavePrefs" target:self] retain] mutableCopy];
+		for (PSSpecifier *spec in specs) {
+			if ([spec.identifier isEqualToString:@"adcell"]) {
+				[spec setTarget:self];
+				break;
+			}
+		}
+		_specifiers = [specs copy];
+	}
+	return _specifiers;
+}
+
+-(UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+    if (section == 0) {
+        return (UIView *)[[MSGAutoSaveMainHeaderView alloc] init];
+    }
+    return nil;
+}
+
+-(CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    if (section == 0) {
+        return 100.f;
+    }
+    return (CGFloat)-1;
+}
+
+-(void)viewDidLoad {
+	[super viewDidLoad];
 }
 
 -(NSArray *)getTitles:(PSSpecifier *)spec {
