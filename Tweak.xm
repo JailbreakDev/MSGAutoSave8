@@ -5,13 +5,6 @@
 #include <notify.h>
 #import "BUIAlertView.h"
 
-/*
-To be done:
-
--Fix Alert showing
-
-*/
-
 @interface NSDistributedNotificationCenter : NSNotificationCenter
 +(id)defaultCenter;
 -(void)postNotificationName:(id)arg1 object:(id)arg2 userInfo:(id)arg3 deliverImmediately:(BOOL)arg4 ;
