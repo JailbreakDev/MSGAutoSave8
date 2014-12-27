@@ -16,7 +16,6 @@
 
 -(void)viewDidLoad {
 	[super viewDidLoad];
-
 	self.bannerView = [[GADBannerView alloc] initWithAdSize:kGADAdSizeBanner];
   	self.bannerView.delegate = self;
   	self.bannerView.adUnitID = @"ca-app-pub-4933765160729181/1539390357";
@@ -25,17 +24,22 @@
   	request.gender = kGADGenderMale;
 	[request setBirthdayWithMonth:6 day:18 year:1990];
 	[request tagForChildDirectedTreatment:YES];
-	//request.contentURL = @"http://googleadsdeveloper.blogspot.com/2013/10/upgrade-to-new-google-mobile-ads-sdk.html";
+	request.contentURL = @"https://ioscoderz.com/forum/index.php";
 	[request addKeyword:@"Messenger"];
 	[request addKeyword:@"Whatsapp"];
 	[request addKeyword:@"Apps"];
+	[request addKeyword:@"Games"];
+	[request addKeyword:@"Minecraft"];
+	[request addKeyword:@"Football"];
+	[request addKeyword:@"iOS"];
+	[request addKeyword:@"GPS"];
 	[request addKeyword:@"Communication"];
   	[self.bannerView loadRequest:request];
   	[self.bannerView setTranslatesAutoresizingMaskIntoConstraints:NO];
   	[[self view] addSubview:self.bannerView];
-  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:[self view] attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
+  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:[self table] attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
   	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeBottom relatedBy:NSLayoutRelationEqual toItem:[self view] attribute:NSLayoutAttributeBottom multiplier:1 constant:0]];
-  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:[self view] attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
+  	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:[self table] attribute:NSLayoutAttributeWidth multiplier:1 constant:0]];
   	[[self view] addConstraint:[NSLayoutConstraint constraintWithItem:self.bannerView attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeHeight multiplier:1 constant:100]];
 }
 
@@ -49,12 +53,12 @@
 
 -(NSArray *)getVideoSizeTitles:(PSSpecifier *)spec {
     
-    return @[@"640x480",@"960x540",@"1280x720",@"1920x1080",@"Do not resize"];
+    return @[@"Low Quality",@"Medium Quality",@"High Quality",@"Do not resize"];
 }
 
 -(NSArray *)getVideoSizeValues:(PSSpecifier *)spec {
     
-    return @[@0,@1,@2,@3,@-1];
+    return @[@0,@1,@2,@-1];
 }
 
 @end

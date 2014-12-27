@@ -31,6 +31,8 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Save Options</string>
+			<key>footerText</key>
+			<string>Videos will not be upscaled. The video will be compressed using H.264 and the audio will be compressed using AAC. Low, Medium and High are defined by the devices resolutions</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -83,6 +85,28 @@
 			<string>getVideoSizeValues:</string>
 			<key>detail</key>
 			<string>PSListItemsController</string>
+			<key>PostNotification</key>
+			<string>MSGAutoSaveUpdateSettingsNotification</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>On Error</string>
+			<key>footerText</key>
+			<string>If an error occurs the original media will be saved to Camera Roll instead.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.sharedroutine.msgautosave</string>
+			<key>key</key>
+			<string>kSaveAnyway</string>
+			<key>label</key>
+			<string>Save original Media</string>
 			<key>PostNotification</key>
 			<string>MSGAutoSaveUpdateSettingsNotification</string>
 		</dict>
