@@ -17,6 +17,10 @@
 			<string>Enabled</string>
 			<key>PostNotification</key>
 			<string>MSGAutoSaveUpdateSettingsNotification</string>
+			<key>set</key>
+			<string>setEnabled:forSpecifier:</string>
+			<key>get</key>
+			<string>readPreferenceValue:</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -44,13 +48,13 @@
 			<key>cell</key>
 			<string>PSLinkListCell</string>
 			<key>default</key>
-			<real>1.0</real>
+			<real>0.0</real>
 			<key>defaults</key>
 			<string>com.sharedroutine.msgautosave</string>
 			<key>key</key>
 			<string>kResizeValue</string>
 			<key>label</key>
-			<string>Resize Images</string>
+			<string>Resize Images to</string>
 			<key>titlesDataSource</key>
 			<string>getTitles:</string>
 			<key>valuesDataSource</key>

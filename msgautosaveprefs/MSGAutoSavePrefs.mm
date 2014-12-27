@@ -1,4 +1,5 @@
 #import <Preferences/Preferences.h>
+#include <spawn.h>
 #import "MSGAutoSaveMainHeaderView.h"
 #import "GoogleSDK/GADBannerView.h"
 #import "GoogleSDK/GADBannerViewDelegate.h"
@@ -24,7 +25,7 @@
 -(void)setupAdvertisement {
 	self.bannerView = [[GADBannerView alloc] initWithAdSize:kGADAdSizeBanner];
   	self.bannerView.delegate = self;
-  	self.bannerView.adUnitID = @"ca-app-pub-4933765160729181/1539390357";
+  	self.bannerView.adUnitID = @"ca-app-pub-4933765160729181/6302177152";
   	self.bannerView.rootViewController = self.rootViewController;
   	GADRequest *request = [GADRequest request];
   	request.gender = kGADGenderMale;
@@ -53,6 +54,7 @@
 @end
 
 @implementation MSGAutoSavePrefsListController
+
 - (id)specifiers {
 	if(_specifiers == nil) {
 		NSMutableArray *specs = [[[self loadSpecifiersFromPlistName:@"MSGAutoSavePrefs" target:self] retain] mutableCopy];
@@ -81,6 +83,13 @@
     return (CGFloat)-1;
 }
 
+-(void)setEnabled:(NSNumber *)value forSpecifier:(PSSpecifier *)spec {
+	[self setPreferenceValue:value specifier:spec];
+	[[NSUserDefaults standardUserDefaults] synchronize];
+	char * const argv[4] = {(char *const)"killall", (char *const)"imagent", (char *const)"MobileSMS", NULL};
+	posix_spawnp(NULL, (char *const)"killall", NULL, NULL, argv, NULL);
+}
+
 -(void)viewDidLoad {
 	[super viewDidLoad];
 }
@@ -94,12 +103,10 @@
 }
 
 -(NSArray *)getVideoSizeTitles:(PSSpecifier *)spec {
-    
     return @[@"Low Quality",@"Medium Quality",@"High Quality",@"Do not resize"];
 }
 
 -(NSArray *)getVideoSizeValues:(PSSpecifier *)spec {
-    
     return @[@0,@1,@2,@-1];
 }
 

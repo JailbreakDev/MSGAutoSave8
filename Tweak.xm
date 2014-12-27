@@ -1,22 +1,16 @@
 #import <AssetsLibrary/AssetsLibrary.h>
 #import <AVFoundation/AVFoundation.h>
+#import <CoreImage/CoreImage.h>
 #import <UIKit/UIKit.h>
 #include <notify.h>
 #import "BUIAlertView.h"
 
-@interface UIImage (Resize)
-+ (UIImage *)imageWithImage:(UIImage *)image scaledToSize:(CGSize)newSize;
-@end
+/*
+To be done:
 
-@implementation UIImage (Resize) 
-+ (UIImage *)imageWithImage:(UIImage *)image scaledToSize:(CGSize)newSize {
-    UIGraphicsBeginImageContextWithOptions(newSize, NO, 0.0);
-    [image drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
-    UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();	
-    UIGraphicsEndImageContext();
-    return newImage;
-}
-@end
+-Fix Alert showing
+
+*/
 
 @interface NSDistributedNotificationCenter : NSNotificationCenter
 +(id)defaultCenter;
@@ -79,31 +73,26 @@
 -(NSString *)qualityForValue:(NSInteger)value;
 @end
 
-@interface BBBulletin : NSObject
-@property (nonatomic,copy) NSString * sectionID;
-@property (nonatomic,copy) NSArray * buttons;
--(BOOL)msg_isSMSBulletin; //new
+@interface UIImage (Resize)
++ (UIImage *)createScaledImageFromData:(NSData *)imageData;
 @end
 
-@interface BBAction : NSObject
-+(id)actionWithLaunchBundleID:(id)arg1 callblock:(/*^block*/id)arg2 ;
-@end
-
-@interface BBButton : NSObject
-+(id)buttonWithTitle:(id)arg1 action:(BBAction *)arg2 identifier:(id)arg3 ;
-@end
-
-@interface SBUIBannerItem : NSObject
--(BBBulletin *)pullDownNotification;
-@end
-
-@interface SBUIBannerContext : NSObject
--(SBUIBannerItem *)item;
-@end
-
-@interface SBDefaultBannerView : UIView
--(SBUIBannerContext *)bannerContext;
--(BBBulletin *)autosave_Bulletin; //new
+@implementation UIImage (Resize) 
++ (UIImage *)createScaledImageFromData:(NSData *)imageData {
+	UIImage *originalImage = [UIImage imageWithData:imageData];
+	CGFloat factor = [MSGAutoSaveSettings sharedSettings].resizeImageValue;
+	CIContext *context = [CIContext contextWithOptions:nil];
+	CIImage *inputImage = [CIImage imageWithCGImage:[originalImage CGImage]];
+	CIFilter *filter = [CIFilter filterWithName:@"CILanczosScaleTransform"];
+	[filter setValue:inputImage forKey:kCIInputImageKey];
+	[filter setValue:[NSNumber numberWithDouble:factor] forKey:@"inputScale"];
+	[filter setValue:@1.0 forKey:@"inputAspectRatio"];
+	CIImage *result = [filter outputImage];
+	CGImageRef cgImage = [context createCGImage:result fromRect:[result extent]];
+	UIImage *imageResult = [UIImage imageWithCGImage:cgImage];
+	CGImageRelease(cgImage);
+	return imageResult;
+}
 @end
 
 @implementation MSGAutoSaveSettings
@@ -169,7 +158,7 @@ void settingsChanged(CFNotificationCenterRef center,
 
 -(CGFloat)resizeImageValue {
 	id value = self.settings[@"kResizeValue"];
-	return value ? (CGFloat)[value floatValue] : (CGFloat)-1.0;
+	return value ? (CGFloat)[value floatValue] : (CGFloat)1.0;
 }
 
 -(NSInteger)resizeVideoValue {
@@ -214,10 +203,11 @@ void settingsChanged(CFNotificationCenterRef center,
 @property (nonatomic,strong) ALAssetsLibrary *assetsLibrary;
 @property (nonatomic,strong) SBLaunchAppListener *launchListener;
 @property (nonatomic,strong) AVAssetExportSession *exportSession;
+@property (nonatomic) NSInteger confirmationToken;
 @end
 
 @implementation MSGAutoSave
-@synthesize transferGUIDs,assetsLibrary,launchListener,exportSession;
+@synthesize transferGUIDs,assetsLibrary,launchListener,exportSession,confirmationToken = _confirmationToken;
 
 +(instancetype)sharedInstance {
 	static dispatch_once_t p = 0;
@@ -228,6 +218,9 @@ void settingsChanged(CFNotificationCenterRef center,
 		_sharedSelf = [[self alloc] init];
 		_sharedSelf.assetsLibrary = [[ALAssetsLibrary alloc] init];
 		_sharedSelf.transferGUIDs = [NSMutableArray array];
+		static int confToken = 0;
+		notify_register_check("com.sharedroutine.MSGAutoSave-confirmation",&confToken);
+		[_sharedSelf setConfirmationToken:confToken];
 	});
 
 	return _sharedSelf;
@@ -243,22 +236,27 @@ void settingsChanged(CFNotificationCenterRef center,
 -(void)notificationReceived:(NSNotification *)notification {
 	NSArray *fileTransferGUIDs = notification.userInfo[@"kTransferGUIDs"];
 	[self setTransferGUIDs:[fileTransferGUIDs mutableCopy]];
-	if (![MSGAutoSaveSettings sharedSettings].shouldConfirmSave) {
+	if (![MSGAutoSaveSettings sharedSettings].shouldConfirmSave) { //no confirmation needed, save instantly in background
 			[self autosaveInBackground];
 	} else {
-		dispatch_async(dispatch_get_main_queue(),^{
-			BUIAlertView *av = [[BUIAlertView alloc] initWithTitle:@"Confirm Autosaving" message:[NSString stringWithFormat:@"Are you sure that you want to save %ld Files?",(long)fileTransferGUIDs.count] delegate:nil cancelButtonTitle:@"Cancel" otherButtonTitles:@"Save", nil];
-			[av showWithDismissBlock:^(UIAlertView *alertView, NSInteger buttonIndex, NSString *buttonTitle) {
-		  		if (buttonIndex != alertView.cancelButtonIndex) {
-		  			[self autosaveInBackground];
-		  		} 
-			}];
-		});
+		notify_set_state(self.confirmationToken, fileTransferGUIDs.count); //store the count of files
+		notify_post("com.sharedroutine.MSGAutoSave-confirmation");
 	}
 }
 
 -(void)prepare {
+
 	[[NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(notificationReceived:) name:@"MSGAutoSaveDoYourThingNotification" object:nil];
+
+	//register for SpringBoard's confirmed notification
+	static int confirmedToken = 0;
+	notify_register_dispatch("com.sharedroutine.MSGAutoSave-confirmed", &confirmedToken, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0), ^(int token) {
+		uint64_t response = -1;
+		notify_get_state(confirmedToken,&response);
+		if (response == 1) {  //save
+			[self autosaveInBackground];
+		}
+	});
 }
 
 -(BOOL)isImageMimeType:(NSString *)mimeType {
@@ -290,17 +288,18 @@ void settingsChanged(CFNotificationCenterRef center,
 			//create an NSData object from the file URL
 			NSData *fileData = [NSData dataWithContentsOfURL:fileTransfer.localURL];
 			if ([self isImageMimeType:fileTransfer.mimeType] && fileData) { //is of type image
-				UIImage *fileImage = [UIImage imageWithData:fileData]; //create image from the file data
 				//resize image - if user does not want it ot be resized, the size is multiplied by 1.0 so it stays the same
-				//UIImage *resizedImage = [UIImage imageWithImage:fileImage scaledToSize:CGSizeMake(fileImage.size.width*[MSGAutoSaveSettings sharedSettings].resizeImageValue,fileImage.size.height*[MSGAutoSaveSettings sharedSettings].resizeImageValue)];
+				UIImage *resizedImage = [UIImage createScaledImageFromData:fileData];
 				//write to photo album
-				[self.assetsLibrary writeImageToSavedPhotosAlbum:fileImage.CGImage orientation:(ALAssetOrientation)[asset valueForProperty:ALAssetPropertyOrientation] completionBlock:^(NSURL *assetURL, NSError *error) {
+				[self.assetsLibrary writeImageToSavedPhotosAlbum:resizedImage.CGImage orientation:(ALAssetOrientation)[asset valueForProperty:ALAssetPropertyOrientation] completionBlock:^(NSURL *assetURL, NSError *error) {
 					if (error) {
 						NSLog(@"[MSGAutoSave failed to save asset with error: %@]",error.description);
 					}
 				}];
 			} else if ([self isVideoMimeType:fileTransfer.mimeType] && fileData) { //is video type
 				NSURL *videoURL = fileTransfer.localURL;
+				NSString *fileName = fileTransfer.filename;
+				NSString *extension = [fileName pathExtension];
 				AVAsset *videoAsset = [AVAsset assetWithURL:videoURL];
 
 				//check if it is possible to resize or if resizing is requested by user
@@ -310,10 +309,9 @@ void settingsChanged(CFNotificationCenterRef center,
 					saveVideoAtURLBlock(videoURL);
 					return;
 				}
+				//initialize export session
 				self.exportSession = [[AVAssetExportSession alloc] initWithAsset:videoAsset presetName:[[MSGAutoSaveSettings sharedSettings] qualityFromSettings]];
 				self.exportSession.outputFileType = AVFileTypeQuickTimeMovie;
-				NSString *fileName = [[videoURL URLByDeletingPathExtension] lastPathComponent];
-				NSString *extension = [videoURL pathExtension];
 				self.exportSession.outputURL = [[videoURL URLByDeletingLastPathComponent] URLByAppendingPathComponent:[NSString stringWithFormat:@"%@_exported.%@",fileName,extension]];
 				[self.exportSession exportAsynchronouslyWithCompletionHandler:^{
 					switch ([self.exportSession status]) {
@@ -355,7 +353,7 @@ void settingsChanged(CFNotificationCenterRef center,
 			NSLog(@"[MSGAutoSave failed to get asset with error: %@]",error.description);
 		}];
 	}
-
+	//clean up
 	[self.transferGUIDs removeAllObjects];
 }
 
@@ -409,7 +407,7 @@ void settingsChanged(CFNotificationCenterRef center,
 	}
 	/*
 		we do not need to post a notification when it is NOT running 
-		because our registered notification observer blocks wait for the app to launch and post it then
+		because our registered notification observer block waits for the app to launch and post it then
 	*/
 }
 
@@ -433,6 +431,34 @@ void settingsChanged(CFNotificationCenterRef center,
 %end
 %end
 
+void initializeSpringBoard() {
+	//register a token for the response
+	static int responseToken = 0;
+	notify_register_check("com.sharedroutine.MSGAutoSave-confirmed",&responseToken);
+
+	//wait for the confirmation notification
+	static int alertToken = 0;
+	notify_register_dispatch("com.sharedroutine.MSGAutoSave-confirmation", &alertToken, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0), ^(int token) {
+		dispatch_async(dispatch_get_main_queue(),^{
+			//get number of files
+			uint64_t countFiles = -1;
+			notify_get_state(token,&countFiles);
+
+			//show confirmation alert
+			BUIAlertView *av = [[BUIAlertView alloc] initWithTitle:@"Confirm Autosaving" message:[NSString stringWithFormat:@"Are you sure that you want to save %llu Files?",countFiles] delegate:nil cancelButtonTitle:@"Cancel" otherButtonTitles:@"Save", nil];
+			[av showWithDismissBlock:^(UIAlertView *alertView, NSInteger buttonIndex, NSString *buttonTitle) {
+				//setting the response value depending on the button that was clicked
+		  		if (buttonIndex != alertView.cancelButtonIndex) {
+		  			notify_set_state(responseToken, 1); //save = 1
+		  		} else {
+		  			notify_set_state(responseToken, 0); //cancel = 0	
+		  		}
+		  		notify_post("com.sharedroutine.MSGAutoSave-confirmed");
+			}];
+		});
+	});
+}
+
 //constructor to initialize hooks and prepare
 %ctor {
 	NSString *processName = [[NSProcessInfo processInfo] processName];
@@ -444,6 +470,11 @@ void settingsChanged(CFNotificationCenterRef center,
 			//initialize the hooks and register notifications
 			[[IMAgentManager sharedManager] registerForNotifications];
 			%init(imagenthooks);
-		} 
+		} else if ([processName isEqualToString:@"SpringBoard"]) {
+			static dispatch_once_t p = 0;
+			dispatch_once(&p,^{
+				initializeSpringBoard();
+			});
+		}
 	}
 }
