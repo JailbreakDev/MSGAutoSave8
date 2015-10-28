@@ -1,9 +1,14 @@
-#import <AssetsLibrary/AssetsLibrary.h>
+#import <Photos/Photos.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreImage/CoreImage.h>
 #import <UIKit/UIKit.h>
 #include <notify.h>
-#import "BUIAlertView.h"
+
+#ifndef kCFCoreFoundationVersionNumber_iOS_9_0
+#define kCFCoreFoundationVersionNumber_iOS_9_0 1240.10
+#endif
+
+#define iOS9_OR_NEWER kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_9_0
 
 @interface NSDistributedNotificationCenter : NSNotificationCenter
 +(id)defaultCenter;
@@ -26,7 +31,6 @@
 -(SBApplication *)applicationWithBundleIdentifier:(id)b;
 @end
 
-
 @interface IMMessageItem : NSObject
 @property (nonatomic,readonly) BOOL isRead;
 @property (nonatomic,readonly) BOOL isFinished;
@@ -39,13 +43,17 @@
 
 @interface IMFileTransfer : NSObject
 @property (nonatomic,readonly) BOOL isFinished;
-@property (assign,nonatomic) BOOL isIncoming; 
+@property (assign,nonatomic) BOOL isIncoming;
 @property (nonatomic,retain) NSString * localPath;
 @property (nonatomic,retain) NSString * type;
 @property (nonatomic,retain) NSString * filename;
 @property (nonatomic,retain) NSURL * localURL;
 @property (assign,nonatomic) unsigned long long totalBytes;
 @property (nonatomic,retain,readonly) NSString * mimeType;
+@end
+
+@interface IMDServiceSession
+-(void)msgautosave_handleMessage:(FZMessage *)message;
 @end
 
 @interface IMFileTransferCenter : NSObject
@@ -70,7 +78,7 @@
 + (UIImage *)createScaledImageFromData:(NSData *)imageData;
 @end
 
-@implementation UIImage (Resize) 
+@implementation UIImage (Resize)
 + (UIImage *)createScaledImageFromData:(NSData *)imageData {
 	UIImage *originalImage = [UIImage imageWithData:imageData];
 	CGFloat factor = [MSGAutoSaveSettings sharedSettings].resizeImageValue;
@@ -112,7 +120,7 @@ void settingsChanged(CFNotificationCenterRef center,
 }
 
 -(void)updateSettings {
-	
+
 	self.settings = nil;
 
 	CFPreferencesAppSynchronize(CFSTR("com.sharedroutine.msgautosave"));
@@ -193,14 +201,16 @@ void settingsChanged(CFNotificationCenterRef center,
 +(instancetype)sharedInstance;
 -(void)prepare;
 @property (nonatomic,strong) NSMutableArray *transferGUIDs;
-@property (nonatomic,strong) ALAssetsLibrary *assetsLibrary;
-@property (nonatomic,strong) SBLaunchAppListener *launchListener;
-@property (nonatomic,strong) AVAssetExportSession *exportSession;
+@property (nonatomic,strong,readonly) SBLaunchAppListener *launchListener;
+@property (nonatomic,strong,readonly) AVAssetExportSession *exportSession;
 @property (nonatomic) NSInteger confirmationToken;
 @end
 
 @implementation MSGAutoSave
-@synthesize transferGUIDs,assetsLibrary,launchListener,exportSession,confirmationToken = _confirmationToken;
+@synthesize transferGUIDs;
+@synthesize launchListener;
+@synthesize exportSession = _exportSession;
+@synthesize confirmationToken = _confirmationToken;
 
 +(instancetype)sharedInstance {
 	static dispatch_once_t p = 0;
@@ -209,7 +219,6 @@ void settingsChanged(CFNotificationCenterRef center,
 
 	dispatch_once(&p, ^{
 		_sharedSelf = [[self alloc] init];
-		_sharedSelf.assetsLibrary = [[ALAssetsLibrary alloc] init];
 		_sharedSelf.transferGUIDs = [NSMutableArray array];
 		static int confToken = 0;
 		notify_register_check("com.sharedroutine.MSGAutoSave-confirmation",&confToken);
@@ -265,11 +274,16 @@ void settingsChanged(CFNotificationCenterRef center,
 
 	void (^saveVideoAtURLBlock)(NSURL *videoURL) = ^(NSURL *videoURL) {
 		//write video at url
-		[self.assetsLibrary writeVideoAtPathToSavedPhotosAlbum:videoURL completionBlock:^(NSURL *assetURL, NSError *error) {
-			if (error) {
-				NSLog(@"[MSGAutoSave failed to save asset with error: %@]",error.description);
-			}
-		}];
+		[[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+        PHAssetChangeRequest *changeRequest = [PHAssetChangeRequest creationRequestForAssetFromVideoAtFileURL:videoURL];
+				NSLog(@"Request Date: %@",changeRequest.creationDate);
+		} completionHandler:^(BOOL success, NSError *error) {
+        if (success) {
+            NSLog(@"Added Image successfully");
+        } else {
+            NSLog(@"Adding Image failed: %@",error.description);
+        }
+    }];
 	};
 
 	for (NSString *guid in self.transferGUIDs) {
@@ -277,40 +291,35 @@ void settingsChanged(CFNotificationCenterRef center,
 		if (fileTransfer == nil) {
 			continue; //skip this transfer, it is nil
 		}
-		[self.assetsLibrary assetForURL:fileTransfer.localURL resultBlock:^(ALAsset *asset) {
-			//create an NSData object from the file URL
-			NSData *fileData = [NSData dataWithContentsOfURL:fileTransfer.localURL];
-			if ([self isImageMimeType:fileTransfer.mimeType] && fileData) { //is of type image
-				//resize image - if user does not want it ot be resized, the size is multiplied by 1.0 so it stays the same
-				UIImage *resizedImage = [UIImage createScaledImageFromData:fileData];
-				//write to photo album
-				[self.assetsLibrary writeImageToSavedPhotosAlbum:resizedImage.CGImage orientation:(ALAssetOrientation)[asset valueForProperty:ALAssetPropertyOrientation] completionBlock:^(NSURL *assetURL, NSError *error) {
-					if (error) {
-						NSLog(@"[MSGAutoSave failed to save asset with error: %@]",error.description);
-					}
-				}];
-			} else if ([self isVideoMimeType:fileTransfer.mimeType] && fileData) { //is video type
-				NSURL *videoURL = fileTransfer.localURL;
-				NSString *fileName = fileTransfer.filename;
-				NSString *extension = [fileName pathExtension];
-				AVAsset *videoAsset = [AVAsset assetWithURL:videoURL];
+		NSData *fileData = [NSData dataWithContentsOfURL:fileTransfer.localURL];
+		if ([self isImageMimeType:fileTransfer.mimeType] && fileData) { //is of type image
+			UIImage *resizedImage = [UIImage createScaledImageFromData:fileData];
+			[[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+				PHAssetChangeRequest *changeRequest = [PHAssetChangeRequest creationRequestForAssetFromImage:resizedImage];
+				NSLog(@"Request Date: %@",changeRequest.creationDate);
+			} completionHandler:nil];
+		} else if ([self isVideoMimeType:fileTransfer.mimeType] && fileData) { //is video type
+			NSURL *videoURL = fileTransfer.localURL;
+			NSString *fileName = fileTransfer.filename;
+			NSString *extension = [fileName pathExtension];
+			AVAsset *videoAsset = [AVAsset assetWithURL:videoURL];
 
-				//check if it is possible to resize or if resizing is requested by user
-				NSArray *compatiblePresets = [AVAssetExportSession exportPresetsCompatibleWithAsset:videoAsset];
-				if (![compatiblePresets containsObject:[[MSGAutoSaveSettings sharedSettings] qualityFromSettings]]) {
-					NSLog(@"[MSGAutoSave %@]",[MSGAutoSaveSettings sharedSettings].resizeVideoValue == -1 ? @"Resize Value is set to -1. No resizing requested" : @"video presets not compatible with video");
-					saveVideoAtURLBlock(videoURL);
-					return;
-				}
-				//initialize export session
-				self.exportSession = [[AVAssetExportSession alloc] initWithAsset:videoAsset presetName:[[MSGAutoSaveSettings sharedSettings] qualityFromSettings]];
-				self.exportSession.outputFileType = AVFileTypeQuickTimeMovie;
-				self.exportSession.outputURL = [[videoURL URLByDeletingLastPathComponent] URLByAppendingPathComponent:[NSString stringWithFormat:@"%@_exported.%@",fileName,extension]];
-				[self.exportSession exportAsynchronouslyWithCompletionHandler:^{
-					switch ([self.exportSession status]) {
+			//check if it is possible to resize or if resizing is requested by user
+			NSArray *compatiblePresets = [AVAssetExportSession exportPresetsCompatibleWithAsset:videoAsset];
+			if (![compatiblePresets containsObject:[[MSGAutoSaveSettings sharedSettings] qualityFromSettings]]) {
+				NSLog(@"[MSGAutoSave %@]",[MSGAutoSaveSettings sharedSettings].resizeVideoValue == -1 ? @"Resize Value is set to -1. No resizing requested" : @"video presets not compatible with video");
+				saveVideoAtURLBlock(videoURL);
+				return;
+			}
+			//initialize export session
+			_exportSession = [[AVAssetExportSession alloc] initWithAsset:videoAsset presetName:[[MSGAutoSaveSettings sharedSettings] qualityFromSettings]];
+			_exportSession.outputFileType = AVFileTypeQuickTimeMovie;
+			_exportSession.outputURL = [[videoURL URLByDeletingLastPathComponent] URLByAppendingPathComponent:[NSString stringWithFormat:@"%@_exported.%@",fileName,extension]];
+			[_exportSession exportAsynchronouslyWithCompletionHandler:^{
+					switch ([_exportSession status]) {
 						case AVAssetExportSessionStatusCompleted:
 							NSLog(@"[MSGAutoSave exportCompleted]");
-							saveVideoAtURLBlock(self.exportSession.outputURL);
+							saveVideoAtURLBlock(_exportSession.outputURL);
 						break;
 
 						case AVAssetExportSessionStatusExporting:
@@ -318,10 +327,10 @@ void settingsChanged(CFNotificationCenterRef center,
 						break;
 
 						case AVAssetExportSessionStatusFailed:
-							NSLog(@"[MSGAutoSave failedWithError:%@]",self.exportSession.error.description);
+							NSLog(@"[MSGAutoSave failedWithError:%@]",_exportSession.error.description);
 							if ([MSGAutoSaveSettings sharedSettings].shouldSaveAnyway) { //save original anyway
 								saveVideoAtURLBlock(videoURL);
-							} 
+							}
 						break;
 
 						case AVAssetExportSessionStatusCancelled:
@@ -341,13 +350,9 @@ void settingsChanged(CFNotificationCenterRef center,
 						break;
 					}
 				}];
-			}
-		} failureBlock:^(NSError *error) {
-			NSLog(@"[MSGAutoSave failed to get asset with error: %@]",error.description);
-		}];
+		}
+		[self.transferGUIDs removeAllObjects];
 	}
-	//clean up
-	[self.transferGUIDs removeAllObjects];
 }
 
 @end
@@ -383,23 +388,26 @@ void settingsChanged(CFNotificationCenterRef center,
 		static int launchToken = 0;
 		notify_register_dispatch("com.apple.MobileSMS-launched", &launchToken, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0), ^(int token) {
 			[self setIsRunning:TRUE];
+			NSLog(@"MobileSMS-launched: %@",self.fileTransferGUIDs);
 			[[NSDistributedNotificationCenter defaultCenter] postNotificationName:@"MSGAutoSaveDoYourThingNotification" object:nil userInfo:@{@"kTransferGUIDs":self.fileTransferGUIDs} deliverImmediately:YES];
-	    });
+	  });
 
 		//register for MobileSMS to exit
-	    static int exitToken = 0;
+	  static int exitToken = 0;
 		notify_register_dispatch("com.apple.MobileSMS-exited", &exitToken, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0), ^(int token) {
 			[self setIsRunning:FALSE];
-	    });
+			NSLog(@"MobileSMS-exited");
+		});
 	});
 }
 
 -(void)postFileTransferGUIDs {
+	NSLog(@"postFileTransferGUIDs");
 	if (self.isRunning) { //if it is running, post a notification
 		[[NSDistributedNotificationCenter defaultCenter] postNotificationName:@"MSGAutoSaveDoYourThingNotification" object:nil userInfo:@{@"kTransferGUIDs":self.fileTransferGUIDs} deliverImmediately:YES];
 	}
 	/*
-		we do not need to post a notification when it is NOT running 
+		we do not need to post a notification when it is NOT running
 		because our registered notification observer block waits for the app to launch and post it then
 	*/
 }
@@ -410,9 +418,8 @@ void settingsChanged(CFNotificationCenterRef center,
 %group imagenthooks
 %hook IMDServiceSession
 
-- (void)didReceiveMessage:(FZMessage *)message forChat:(id)chat style:(unsigned char)style {
-	%orig;
-
+%new
+-(void)msgautosave_handleMessage:(FZMessage *)message {
 	if (message.isFinished && message.fileTransferGUIDs.count > 0) { //has any file to transfer
 		//set file transfer guids
 		[[IMAgentManager sharedManager] setFileTransferGUIDs:message.fileTransferGUIDs];
@@ -420,6 +427,20 @@ void settingsChanged(CFNotificationCenterRef center,
 		[[IMAgentManager sharedManager] postFileTransferGUIDs];
 	}
 }
+
+//iOS 9 thanks kirb
+%group iOS9
+- (void)didReceiveMessage:(FZMessage *)message forChat:(id)chat style:(unsigned char)style account:(id)account {
+	%orig;
+	[self msgautosave_handleMessage:message];
+}
+%end
+%group iOS8
+- (void)didReceiveMessage:(FZMessage *)message forChat:(id)chat style:(unsigned char)style {
+	%orig;
+	[self msgautosave_handleMessage:message];
+}
+%end
 
 %end
 %end
@@ -437,17 +458,18 @@ void initializeSpringBoard() {
 			uint64_t countFiles = -1;
 			notify_get_state(token,&countFiles);
 
-			//show confirmation alert
-			BUIAlertView *av = [[BUIAlertView alloc] initWithTitle:@"Confirm Autosaving" message:[NSString stringWithFormat:@"Are you sure that you want to save %llu Files?",countFiles] delegate:nil cancelButtonTitle:@"Cancel" otherButtonTitles:@"Save", nil];
-			[av showWithDismissBlock:^(UIAlertView *alertView, NSInteger buttonIndex, NSString *buttonTitle) {
-				//setting the response value depending on the button that was clicked
-		  		if (buttonIndex != alertView.cancelButtonIndex) {
-		  			notify_set_state(responseToken, 1); //save = 1
-		  		} else {
-		  			notify_set_state(responseToken, 0); //cancel = 0	
-		  		}
-		  		notify_post("com.sharedroutine.MSGAutoSave-confirmed");
+			UIAlertController *confirmationAlert = [UIAlertController alertControllerWithTitle:@"Confirm Autosaving" message:[NSString stringWithFormat:@"Are you sure that you want to save %llu Files?",countFiles] preferredStyle:UIAlertControllerStyleAlert];
+			UIAlertAction *defaultAction = [UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction * action) {
+				notify_set_state(responseToken, 1); //save = 1
+				notify_post("com.sharedroutine.MSGAutoSave-confirmed");
 			}];
+			UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * action) {
+				notify_set_state(responseToken, 0); //save = 1
+				notify_post("com.sharedroutine.MSGAutoSave-confirmed");
+			}];
+			[confirmationAlert addAction:cancelAction];
+			[confirmationAlert addAction:defaultAction];
+			[[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:confirmationAlert animated:YES completion:nil];
 		});
 	});
 }
@@ -460,14 +482,15 @@ void initializeSpringBoard() {
 		if ([processName isEqualToString:@"MobileSMS"]) {
 			[[MSGAutoSave sharedInstance] prepare];
 		} else if ([processName isEqualToString:@"imagent"]) {
-			//initialize the hooks and register notifications
 			[[IMAgentManager sharedManager] registerForNotifications];
 			%init(imagenthooks);
+			if (iOS9_OR_NEWER) {
+				%init(iOS9);
+			} else {
+				%init(iOS8);
+			}
 		} else if ([processName isEqualToString:@"SpringBoard"]) {
-			static dispatch_once_t p = 0;
-			dispatch_once(&p,^{
-				initializeSpringBoard();
-			});
+			initializeSpringBoard();
 		}
 	}
 }
